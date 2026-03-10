@@ -1,33 +1,78 @@
-import java.util.*;
+import java.util.HashMap;
 
-public class solution {
+class TokenBucket {
 
-    static HashMap<String,Integer> stock = new HashMap<>();
-    static Queue<Integer> waitingList = new LinkedList<>();
+    int tokens;
+    int maxTokens;
+    long lastRefillTime;
+    int refillRate; // tokens per second
 
-    static void checkStock(String product){
-        System.out.println("Stock: "+stock.get(product));
+    TokenBucket(int maxTokens, int refillRate) {
+        this.maxTokens = maxTokens;
+        this.tokens = maxTokens;
+        this.refillRate = refillRate;
+        this.lastRefillTime = System.currentTimeMillis();
     }
 
-    static void purchaseItem(String product,int userId){
+    void refill() {
+        long now = System.currentTimeMillis();
+        long elapsed = (now - lastRefillTime) / 1000;
 
-        if(stock.get(product)>0){
-            stock.put(product, stock.get(product)-1);
-            System.out.println("Purchase successful. Remaining: "+stock.get(product));
-        }
-        else{
-            waitingList.add(userId);
-            System.out.println("Out of stock. Added to waiting list position "+waitingList.size());
+        int tokensToAdd = (int) (elapsed * refillRate);
+
+        if (tokensToAdd > 0) {
+            tokens = Math.min(maxTokens, tokens + tokensToAdd);
+            lastRefillTime = now;
         }
     }
 
-    public static void main(String[] args){
+    boolean allowRequest() {
+        refill();
 
-        stock.put("IPHONE15_256GB",100);
+        if (tokens > 0) {
+            tokens--;
+            return true;
+        }
 
-        checkStock("IPHONE15_256GB");
+        return false;
+    }
+}
 
-        purchaseItem("IPHONE15_256GB",12345);
-        purchaseItem("IPHONE15_256GB",67890);
+public class solution{
+
+    static HashMap<String, TokenBucket> clients = new HashMap<>();
+
+    static int LIMIT = 1000;
+    static int REFILL_RATE = 1000 / 3600; // tokens per second
+
+    static void checkRateLimit(String clientId) {
+
+        clients.putIfAbsent(clientId, new TokenBucket(LIMIT, REFILL_RATE));
+
+        TokenBucket bucket = clients.get(clientId);
+
+        if (bucket.allowRequest()) {
+            System.out.println("Allowed (" + bucket.tokens + " requests remaining)");
+        } else {
+            System.out.println("Denied (0 requests remaining, retry later)");
+        }
+    }
+
+    static void getRateLimitStatus(String clientId) {
+
+        TokenBucket bucket = clients.get(clientId);
+
+        System.out.println("{used: " + (LIMIT - bucket.tokens) +
+                ", limit: " + LIMIT +
+                ", reset: " + (bucket.lastRefillTime + 3600000) + "}");
+    }
+
+    public static void main(String[] args) {
+
+        checkRateLimit("abc123");
+        checkRateLimit("abc123");
+        checkRateLimit("abc123");
+
+        getRateLimitStatus("abc123");
     }
 }
