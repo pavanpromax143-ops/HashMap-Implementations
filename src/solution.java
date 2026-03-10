@@ -1,78 +1,49 @@
-import java.util.HashMap;
+import java.util.*;
 
-class TokenBucket {
+class DNSEntry{
+    String ip;
+    long expiry;
 
-    int tokens;
-    int maxTokens;
-    long lastRefillTime;
-    int refillRate; // tokens per second
-
-    TokenBucket(int maxTokens, int refillRate) {
-        this.maxTokens = maxTokens;
-        this.tokens = maxTokens;
-        this.refillRate = refillRate;
-        this.lastRefillTime = System.currentTimeMillis();
-    }
-
-    void refill() {
-        long now = System.currentTimeMillis();
-        long elapsed = (now - lastRefillTime) / 1000;
-
-        int tokensToAdd = (int) (elapsed * refillRate);
-
-        if (tokensToAdd > 0) {
-            tokens = Math.min(maxTokens, tokens + tokensToAdd);
-            lastRefillTime = now;
-        }
-    }
-
-    boolean allowRequest() {
-        refill();
-
-        if (tokens > 0) {
-            tokens--;
-            return true;
-        }
-
-        return false;
+    DNSEntry(String ip,long expiry){
+        this.ip=ip;
+        this.expiry=expiry;
     }
 }
 
-public class solution{
+public class solution {
 
-    static HashMap<String, TokenBucket> clients = new HashMap<>();
+    static HashMap<String,DNSEntry> cache = new HashMap<>();
 
-    static int LIMIT = 1000;
-    static int REFILL_RATE = 1000 / 3600; // tokens per second
+    static String resolve(String domain){
 
-    static void checkRateLimit(String clientId) {
+        long now = System.currentTimeMillis();
 
-        clients.putIfAbsent(clientId, new TokenBucket(LIMIT, REFILL_RATE));
+        if(cache.containsKey(domain)){
 
-        TokenBucket bucket = clients.get(clientId);
+            DNSEntry entry = cache.get(domain);
 
-        if (bucket.allowRequest()) {
-            System.out.println("Allowed (" + bucket.tokens + " requests remaining)");
-        } else {
-            System.out.println("Denied (0 requests remaining, retry later)");
+            if(entry.expiry > now){
+                System.out.println("Cache HIT");
+                return entry.ip;
+            }
+            else{
+                System.out.println("Cache EXPIRED");
+                cache.remove(domain);
+            }
         }
+
+        System.out.println("Cache MISS");
+
+        String ip="172.217.14.206";
+
+        cache.put(domain,new DNSEntry(ip, now + 300000));
+
+        return ip;
     }
 
-    static void getRateLimitStatus(String clientId) {
+    public static void main(String[] args){
 
-        TokenBucket bucket = clients.get(clientId);
-
-        System.out.println("{used: " + (LIMIT - bucket.tokens) +
-                ", limit: " + LIMIT +
-                ", reset: " + (bucket.lastRefillTime + 3600000) + "}");
-    }
-
-    public static void main(String[] args) {
-
-        checkRateLimit("abc123");
-        checkRateLimit("abc123");
-        checkRateLimit("abc123");
-
-        getRateLimitStatus("abc123");
+        System.out.println(resolve("google.com"));
+        System.out.println(resolve("google.com"));
     }
 }
