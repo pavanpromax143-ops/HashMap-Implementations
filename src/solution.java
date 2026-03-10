@@ -1,54 +1,87 @@
 import java.util.*;
 
-public class solution{
+public class solution {
 
-    static HashMap<String,Integer> users = new HashMap<>();
-    static HashMap<String,Integer> attempts = new HashMap<>();
+    // n-gram -> documents containing it
+    static HashMap<String, Set<String>> ngramIndex = new HashMap<>();
 
-    static boolean checkAvailability(String username) {
+    static int N = 5; // 5-gram
 
-        attempts.put(username, attempts.getOrDefault(username,0)+1);
+    // Generate n-grams
+    public static List<String> generateNgrams(String text) {
+        String[] words = text.split("\\s+");
+        List<String> ngrams = new ArrayList<>();
 
-        return !users.containsKey(username);
+        for (int i = 0; i <= words.length - N; i++) {
+            StringBuilder gram = new StringBuilder();
+            for (int j = 0; j < N; j++) {
+                gram.append(words[i + j]).append(" ");
+            }
+            ngrams.add(gram.toString().trim());
+        }
+
+        return ngrams;
     }
 
-    static List<String> suggestAlternatives(String username){
+    // Store document in index
+    public static void addDocument(String docName, String text) {
+        List<String> grams = generateNgrams(text);
 
-        List<String> list = new ArrayList<>();
-
-        list.add(username + "1");
-        list.add(username + "2");
-        list.add(username.replace("_","."));
-
-        return list;
+        for (String gram : grams) {
+            ngramIndex.putIfAbsent(gram, new HashSet<>());
+            ngramIndex.get(gram).add(docName);
+        }
     }
 
-    static String getMostAttempted(){
+    // Analyze document for plagiarism
+    public static void analyzeDocument(String docName, String text) {
 
-        int max = 0;
-        String name = "";
+        List<String> grams = generateNgrams(text);
+        System.out.println("Extracted " + grams.size() + " n-grams");
 
-        for(String key : attempts.keySet()){
+        HashMap<String, Integer> matchCount = new HashMap<>();
 
-            if(attempts.get(key) > max){
-                max = attempts.get(key);
-                name = key;
+        for (String gram : grams) {
+
+            if (ngramIndex.containsKey(gram)) {
+
+                for (String doc : ngramIndex.get(gram)) {
+                    matchCount.put(doc, matchCount.getOrDefault(doc, 0) + 1);
+                }
+
             }
         }
 
-        return name + " (" + max + " attempts)";
+        for (String doc : matchCount.keySet()) {
+
+            int matches = matchCount.get(doc);
+            double similarity = (matches * 100.0) / grams.size();
+
+            System.out.println("Found " + matches + " matching n-grams with \"" + doc + "\"");
+
+            System.out.printf("Similarity: %.1f%% ", similarity);
+
+            if (similarity > 50)
+                System.out.println("(PLAGIARISM DETECTED)");
+            else if (similarity > 10)
+                System.out.println("(suspicious)");
+            else
+                System.out.println("(safe)");
+        }
     }
 
     public static void main(String[] args) {
 
-        users.put("john_doe",1);
-        users.put("admin",2);
+        // existing documents
+        String essay1 = "machine learning improves systems by learning from data automatically";
+        String essay2 = "learning from data automatically improves machine intelligence systems";
 
-        System.out.println(checkAvailability("john_doe"));
-        System.out.println(checkAvailability("jane_smith"));
+        addDocument("essay_089.txt", essay1);
+        addDocument("essay_092.txt", essay2);
 
-        System.out.println(suggestAlternatives("john_doe"));
+        // new essay
+        String newEssay = "machine learning improves systems by learning from data automatically and helps automation";
 
-        System.out.println(getMostAttempted());
+        analyzeDocument("essay_123.txt", newEssay);
     }
 }
